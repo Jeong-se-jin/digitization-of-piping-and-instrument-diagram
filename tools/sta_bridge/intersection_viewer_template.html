@@ -1,0 +1,262 @@
+<title>__TITLE__</title>
+<style>
+  :root{
+    --bg:#F4F2ED; --panel:#FFFFFF; --ink:#16181E; --muted:#61646E;
+    --line:rgba(22,24,30,.12); --accent:#C2410C; --teal:#0E6E7A; --green:#1F7A3A;
+  }
+  :root:not([data-theme="light"]){}
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#14161A; --panel:#1C1F25; --ink:#E9EAEC; --muted:#9AA0AA;
+      --line:rgba(233,234,236,.14);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#14161A; --panel:#1C1F25; --ink:#E9EAEC; --muted:#9AA0AA;
+    --line:rgba(233,234,236,.14);
+  }
+  *{box-sizing:border-box}
+  body{background:var(--bg);color:var(--ink);font:14px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;margin:0;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+  header{padding:10px 16px;border-bottom:1px solid var(--line);display:flex;gap:18px;align-items:baseline;flex:none}
+  h1{font-size:15px;margin:0;font-weight:650;letter-spacing:-.01em}
+  .stats{color:var(--muted);font-size:12.5px;font-variant-numeric:tabular-nums}
+  main{flex:1;display:flex;min-height:0}
+  #stage{flex:1;position:relative;overflow:hidden;background:var(--panel);cursor:grab}
+  #stage.drag{cursor:grabbing}
+  #wrap{position:absolute;transform-origin:0 0;left:0;top:0}
+  #wrap img{display:block;max-width:none}
+  svg{position:absolute;left:0;top:0;overflow:visible}
+  aside{width:290px;border-left:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;flex:none}
+  .hud{padding:10px 14px;border-bottom:1px solid var(--line);font-size:12.5px;display:flex;flex-direction:column;gap:6px}
+  .hud label{display:flex;gap:7px;align-items:center;cursor:pointer;color:var(--muted)}
+  .hud input{accent-color:var(--accent);margin:0}
+  .swatch{width:11px;height:11px;border-radius:3px;flex:none}
+  #detail{padding:12px 14px;overflow:auto;font-size:13px}
+  #detail h2{font-size:13px;margin:0 0 8px;font-weight:650}
+  #detail .empty{color:var(--muted)}
+  .row{padding:4px 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:10px;cursor:pointer}
+  .row:hover{color:var(--accent)}
+  .row span:last-child{color:var(--muted);font-variant-numeric:tabular-nums;flex:none}
+  .k{color:var(--muted);font-size:12px;margin:10px 0 3px}
+  .run  {stroke:#2563C8;stroke-width:2.2;opacity:.62;stroke-linecap:round}
+  .run.dash{stroke:#C026C0}
+  .run.on {stroke:var(--accent);stroke-width:4.5;opacity:1}
+  .jx   {fill:var(--green);opacity:.85}
+  .ct   {fill:#D02020;opacity:.9}
+  .pt.on{fill:var(--accent);stroke:#fff;stroke-width:1.5}
+  .sym  {fill:none;stroke:rgba(22,24,30,.3);stroke-width:1.2}
+  .sym.hit{fill:rgba(0,0,0,0);stroke:none;cursor:pointer}
+  .sym.on {stroke:var(--accent);stroke-width:3;fill:rgba(194,65,12,.12)}
+  .sym.near{stroke:var(--teal);stroke-width:2.4}
+  footer{padding:7px 16px;border-top:1px solid var(--line);color:var(--muted);font-size:12px;flex:none}
+</style>
+
+<header>
+  <h1>__TITLE__</h1>
+  <div class="stats" id="stats"></div>
+</header>
+<main>
+  <div id="stage">
+    <div id="wrap">
+      <img id="img" src="__IMAGE_SRC__" alt="P&amp;ID">
+      <svg id="ov"><g id="gRuns"></g><g id="gPts"></g><g id="gSyms"></g><g id="gHit"></g></svg>
+    </div>
+  </div>
+  <aside>
+    <div class="hud">
+      <label><input type="checkbox" id="cRuns" checked><span class="swatch" style="background:#2563C8"></span>runs</label>
+      <label><input type="checkbox" id="cJx" checked><span class="swatch" style="background:#1F7A3A"></span>line-to-line junctions</label>
+      <label><input type="checkbox" id="cCt" checked><span class="swatch" style="background:#D02020"></span>line-to-symbol contacts</label>
+      <label><input type="checkbox" id="cSym" checked><span class="swatch" style="border:1.5px solid rgba(128,128,128,.7)"></span>symbols</label>
+    </div>
+    <div id="detail"><div class="empty">Click a symbol.</div></div>
+  </aside>
+</main>
+<footer id="foot"></footer>
+
+<script>
+var D = __DATA__;
+var W = D.image_details.width, H = D.image_details.height;
+
+var img = document.getElementById("img"), ov = document.getElementById("ov");
+img.width = W; img.height = H;
+ov.setAttribute("width", W); ov.setAttribute("height", H);
+ov.setAttribute("viewBox", "0 0 " + W + " " + H);
+
+var SVG = "http://www.w3.org/2000/svg";
+function el(n, a) { var e = document.createElementNS(SVG, n); for (var k in a) e.setAttribute(k, a[k]); return e; }
+
+// ---- draw ----------------------------------------------------------------
+var gRuns = document.getElementById("gRuns"), gPts = document.getElementById("gPts"),
+    gSyms = document.getElementById("gSyms"), gHit = document.getElementById("gHit");
+var runEls = {}, ptEls = [], symEls = {};
+
+D.runs.forEach(function (r) {
+  var x1, y1, x2, y2;
+  if (r.axis === "h") { x1 = r.lo; x2 = r.hi; y1 = y2 = r.pos; }
+  else                { y1 = r.lo; y2 = r.hi; x1 = x2 = r.pos; }
+  var e = el("line", { x1: x1, y1: y1, x2: x2, y2: y2,
+                       "class": "run" + (r.dashed ? " dash" : "") });
+  gRuns.appendChild(e); runEls[r.id] = e;
+});
+
+D.points.forEach(function (p, i) {
+  var e = el("circle", { cx: p.x, cy: p.y, r: p.kind === "junction" ? 3.6 : 4.4,
+                         "class": "pt " + (p.kind === "junction" ? "jx" : "ct") });
+  gPts.appendChild(e); ptEls[i] = e;
+});
+
+D.symbols.forEach(function (s) {
+  var b = s.box;
+  var e = el("rect", { x: b[0], y: b[1], width: b[2] - b[0], height: b[3] - b[1], "class": "sym" });
+  gSyms.appendChild(e); symEls[s.id] = e;
+  var hit = el("rect", { x: b[0] - 3, y: b[1] - 3, width: b[2] - b[0] + 6, height: b[3] - b[1] + 6, "class": "sym hit" });
+  hit.addEventListener("click", function (ev) { ev.stopPropagation(); select(s.id); });
+  gHit.appendChild(hit);
+});
+
+// ---- indices -------------------------------------------------------------
+var symById = {}; D.symbols.forEach(function (s) { symById[s.id] = s; });
+var links = {};
+D.symbol_links.forEach(function (pair) {
+  (links[pair[0]] = links[pair[0]] || []).push(pair[1]);
+  (links[pair[1]] = links[pair[1]] || []).push(pair[0]);
+});
+var ptsOfSymbol = {};
+function symbolsAt(p) {
+  return p.symbol === null ? [] : [p.symbol].concat(p.also || []);
+}
+D.points.forEach(function (p, i) {
+  symbolsAt(p).forEach(function (s) {
+    (ptsOfSymbol[s] = ptsOfSymbol[s] || []).push(i);
+  });
+});
+var adj = {};
+D.edges.forEach(function (e) {
+  (adj[e.a] = adj[e.a] || []).push(e.b);
+  (adj[e.b] = adj[e.b] || []).push(e.a);
+});
+
+function name(s) {
+  return s.text || (s.label.split("/").pop() + " #" + s.id);
+}
+
+// ---- selection -----------------------------------------------------------
+var sel = null;
+
+function clear() {
+  Object.keys(symEls).forEach(function (k) { symEls[k].setAttribute("class", "sym"); });
+  D.runs.forEach(function (r) { runEls[r.id].setAttribute("class", "run" + (r.dashed ? " dash" : "")); });
+  D.points.forEach(function (p, i) { ptEls[i].setAttribute("class", "pt " + (p.kind === "junction" ? "jx" : "ct")); });
+}
+
+function select(id) {
+  sel = id; clear();
+  symEls[id].setAttribute("class", "sym on");
+  (links[id] || []).forEach(function (o) {
+    if (symEls[o]) symEls[o].setAttribute("class", "sym near");
+  });
+  // Walk out from this symbol's contacts, lighting what is reached until the
+  // next symbol -- the same walk the export used to make the links.
+  var seen = {}, queue = (ptsOfSymbol[id] || []).slice();
+  queue.forEach(function (i) { seen[i] = 1; light(i); });
+  while (queue.length) {
+    var n = queue.shift();
+    (adj[n] || []).forEach(function (m) {
+      if (seen[m]) return;
+      seen[m] = 1; light(m);
+      if (symbolsAt(D.points[m]).length === 0) queue.push(m);
+    });
+  }
+  detail(id);
+  apply();
+}
+
+function light(i) {
+  ptEls[i].setAttribute("class", "pt on");
+  D.points[i].runs.forEach(function (r) {
+    if (runEls[r]) runEls[r].setAttribute("class", "run on");
+  });
+}
+
+function detail(id) {
+  var s = symById[id], host = document.getElementById("detail");
+  var mine = (ptsOfSymbol[id] || []).length;
+  var html = "<h2>" + name(s) + "</h2>";
+  html += '<div class="k">' + s.label + "</div>";
+  html += '<div class="k">contact points on this symbol: ' + mine + "</div>";
+  var ls = (links[id] || []).slice().sort();
+  html += '<div class="k">connected to ' + ls.length + "</div>";
+  ls.forEach(function (o) {
+    var t = symById[o];
+    html += '<div class="row" data-id="' + o + '"><span>' + name(t) +
+            "</span><span>" + t.label.split("/").pop() + "</span></div>";
+  });
+  host.innerHTML = html;
+  host.querySelectorAll(".row").forEach(function (r) {
+    r.addEventListener("click", function () { select(+r.dataset.id); });
+  });
+}
+
+// ---- toggles -------------------------------------------------------------
+function apply() {
+  gRuns.style.display = document.getElementById("cRuns").checked ? "" : "none";
+  gSyms.style.display = document.getElementById("cSym").checked ? "" : "none";
+  var jx = document.getElementById("cJx").checked, ct = document.getElementById("cCt").checked;
+  D.points.forEach(function (p, i) {
+    ptEls[i].style.display = (p.kind === "junction" ? jx : ct) ? "" : "none";
+  });
+}
+["cRuns", "cJx", "cCt", "cSym"].forEach(function (k) {
+  document.getElementById(k).addEventListener("change", apply);
+});
+
+// ---- pan / zoom ----------------------------------------------------------
+var stage = document.getElementById("stage"), wrap = document.getElementById("wrap");
+var z = 1, ox = 0, oy = 0;
+function render() { wrap.style.transform = "translate(" + ox + "px," + oy + "px) scale(" + z + ")"; }
+function fit() {
+  var r = stage.getBoundingClientRect();
+  z = Math.min(r.width / W, r.height / H);
+  ox = (r.width - W * z) / 2; oy = (r.height - H * z) / 2;
+  render();
+}
+stage.addEventListener("wheel", function (e) {
+  e.preventDefault();
+  var r = stage.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top;
+  var f = Math.exp(-e.deltaY * 0.0015), nz = Math.max(0.05, Math.min(40, z * f));
+  ox = mx - (mx - ox) * (nz / z); oy = my - (my - oy) * (nz / z); z = nz;
+  render();
+}, { passive: false });
+var dragging = false, px = 0, py = 0;
+stage.addEventListener("pointerdown", function (e) {
+  if (e.target.closest(".sym.hit")) return;
+  dragging = true; px = e.clientX; py = e.clientY;
+  stage.classList.add("drag"); stage.setPointerCapture(e.pointerId);
+});
+stage.addEventListener("pointermove", function (e) {
+  if (!dragging) return;
+  ox += e.clientX - px; oy += e.clientY - py; px = e.clientX; py = e.clientY; render();
+});
+stage.addEventListener("pointerup", function (e) {
+  dragging = false; stage.classList.remove("drag");
+  try { stage.releasePointerCapture(e.pointerId); } catch (_) {}
+});
+stage.addEventListener("click", function (e) {
+  if (!e.target.closest(".sym.hit")) { sel = null; clear(); apply();
+    document.getElementById("detail").innerHTML = '<div class="empty">Click a symbol.</div>'; }
+});
+addEventListener("resize", fit);
+
+// ---- boot ----------------------------------------------------------------
+var nJx = D.points.filter(function (p) { return p.kind === "junction"; }).length;
+document.getElementById("stats").textContent =
+  D.symbols.length + " symbols · " + D.runs.length + " runs · " +
+  D.points.length + " points (" + nJx + " junctions, " + (D.points.length - nJx) + " contacts) · " +
+  D.symbol_links.length + " symbol links";
+document.getElementById("foot").textContent =
+  "Scroll to zoom, drag to pan. Green = two runs cross. Red = a run meets a symbol box. " +
+  "Purple runs are dashed.";
+if (img.complete) fit(); else img.onload = fit;
+apply();
+</script>

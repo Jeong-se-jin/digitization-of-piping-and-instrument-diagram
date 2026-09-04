@@ -1,0 +1,39 @@
+# Train/val/test sets as 1) dir: path/to/imgs, 2) file: path/to/imgs.txt, or 3) list: [path/to/imgs1, path/to/imgs2, ..]
+path: .  # dataset root dir
+train: ./train.txt
+val: ./val.txt
+
+names:
+    0: Not_used
+    1: Gate_Valve
+    2: Ball_Valve
+    3: Globe_valve_NO
+    4: Gate_valve_NO
+    5: Globe_valve_NO
+    6: Butterfly_valve
+    7: Plug valve
+    8: Check_valve
+    9: Diaphragm_valve
+    10: Needle_valve
+    11: Half_Filled_Gate_Valve
+    12: Gate_Valve_NC
+    13: Globle_valve_NC
+    14: Control_Valve
+    15: Rotary_Valve
+    16: Ball_valve_NC
+    17: Paddle_blind
+    18: Spectacle_blind_Closed
+    19: Spectacle_blind_Open
+    20: Reducer
+    21: Flange_or_Nozzle
+    22: Rupture_disk
+    23: Pipe_Insulation_or_Tracing
+    24: Flow_Arrow
+    25: sight_glass
+    26: Instrument_Field
+    27: Instrument_Field
+    28: Instrument_Panel
+    29: Instrument_Aux_Panel
+    30: box
+    31: Instrument_Panel
+    32: box

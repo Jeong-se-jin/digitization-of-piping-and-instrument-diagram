@@ -1,0 +1,966 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__TITLE__</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+  /* Light palette — the complete set. Dark blocks below redefine only tokens. */
+  :root {
+    --ground:  #F4F2EE;
+    --panel:   #FBFAF8;
+    --panel-2: #EDEAE4;
+    --line:    #E0DCD3;
+    --line-2:  #CFCABF;
+    --ink:     #191B1F;
+    --ink-2:   #5C5E64;
+    --ink-3:   #8C8E94;
+    --accent:  #C2410C;
+    --accent-soft: rgba(194, 65, 12, .12);
+    --teal:    #0E6E7A;
+    --shadow:  rgba(40, 32, 18, .10);
+    --focus:   #C2410C;
+
+    --c-valve:      #B45309;
+    --c-instrument: #4338CA;
+    --c-fitting:    #0F766E;
+    --c-equipment:  #7E22CE;
+    --c-pagination: #BE185D;
+    --c-other:      #6B7280;
+
+    /* The drawing is black ink on white stock; it keeps its paper in both
+       themes, so on-canvas marks below use fixed colours, not these tokens. */
+    --paper: #FFFFFF;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:  #121418;
+      --panel:   #1A1D22;
+      --panel-2: #23272E;
+      --line:    #2B2F37;
+      --line-2:  #3A3F49;
+      --ink:     #E9E7E2;
+      --ink-2:   #A2A4AA;
+      --ink-3:   #74777E;
+      --accent:  #F97316;
+      --accent-soft: rgba(249, 115, 22, .16);
+      --teal:    #2DD4BF;
+      --shadow:  rgba(0, 0, 0, .45);
+      --focus:   #F97316;
+
+      --c-valve:      #F0A64B;
+      --c-instrument: #9099F5;
+      --c-fitting:    #4FD1C5;
+      --c-equipment:  #C79BF0;
+      --c-pagination: #F587B4;
+      --c-other:      #98A0AC;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:  #121418;
+    --panel:   #1A1D22;
+    --panel-2: #23272E;
+    --line:    #2B2F37;
+    --line-2:  #3A3F49;
+    --ink:     #E9E7E2;
+    --ink-2:   #A2A4AA;
+    --ink-3:   #74777E;
+    --accent:  #F97316;
+    --accent-soft: rgba(249, 115, 22, .16);
+    --teal:    #2DD4BF;
+    --shadow:  rgba(0, 0, 0, .45);
+    --focus:   #F97316;
+
+    --c-valve:      #F0A64B;
+    --c-instrument: #9099F5;
+    --c-fitting:    #4FD1C5;
+    --c-equipment:  #C79BF0;
+    --c-pagination: #F587B4;
+    --c-other:      #98A0AC;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; }
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .mono { font-family: "IBM Plex Mono", ui-monospace, "SFMono-Regular", monospace; }
+
+  .app { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
+
+  /* ---- top bar ---- */
+  .bar {
+    display: flex; align-items: baseline; gap: 18px;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel);
+    flex: 0 0 auto;
+  }
+  .bar h1 {
+    margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -.01em;
+  }
+  .bar .sub { color: var(--ink-3); font-size: 12px; }
+  .stats { margin-left: auto; display: flex; gap: 20px; }
+  .stat { display: flex; align-items: baseline; gap: 6px; }
+  .stat b {
+    font-family: "IBM Plex Mono", monospace; font-weight: 600; font-size: 14px;
+    font-variant-numeric: tabular-nums;
+  }
+  .stat span {
+    font-size: 10px; letter-spacing: .09em; text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  /* ---- three-pane body ---- */
+  .panes { display: flex; flex: 1 1 auto; min-height: 0; }
+  .rail {
+    width: 290px; flex: 0 0 290px;
+    border-right: 1px solid var(--line);
+    background: var(--panel);
+    display: flex; flex-direction: column; min-height: 0;
+  }
+  .detail {
+    width: 320px; flex: 0 0 320px;
+    border-left: 1px solid var(--line);
+    background: var(--panel);
+    display: flex; flex-direction: column; min-height: 0;
+  }
+  .stage {
+    flex: 1 1 auto; position: relative; overflow: hidden;
+    background:
+      repeating-conic-gradient(var(--panel-2) 0% 25%, transparent 0% 50%)
+      50% / 18px 18px;
+    cursor: grab;
+  }
+  .stage.dragging { cursor: grabbing; }
+
+  /* ---- search ---- */
+  .search { padding: 10px; border-bottom: 1px solid var(--line); }
+  .search input {
+    width: 100%; padding: 7px 10px;
+    border: 1px solid var(--line-2); border-radius: 5px;
+    background: var(--ground); color: var(--ink);
+    font-family: "IBM Plex Mono", monospace; font-size: 12.5px;
+  }
+  .search input::placeholder { color: var(--ink-3); font-family: "IBM Plex Sans", sans-serif; }
+  .search input:focus { outline: 2px solid var(--focus); outline-offset: 1px; border-color: transparent; }
+
+  /* ---- asset list ---- */
+  .list { overflow-y: auto; flex: 1 1 auto; padding: 4px 0 16px; }
+  .group {
+    padding: 12px 12px 4px;
+    font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--ink-3); font-weight: 600;
+  }
+  .row {
+    display: flex; align-items: center; gap: 9px;
+    width: 100%; text-align: left;
+    padding: 6px 12px; border: 0; background: none;
+    color: inherit; font: inherit; cursor: pointer;
+    border-left: 2px solid transparent;
+  }
+  .row:hover { background: var(--panel-2); }
+  .row:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+  .row[aria-selected="true"] {
+    background: var(--accent-soft); border-left-color: var(--accent);
+  }
+  .dot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; }
+  .row .tag {
+    font-family: "IBM Plex Mono", monospace; font-size: 12.5px; font-weight: 500;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .row .kind {
+    color: var(--ink-3); font-size: 11px; margin-left: auto;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 96px;
+  }
+  .row .deg {
+    font-family: "IBM Plex Mono", monospace; font-size: 11px;
+    color: var(--ink-2); font-variant-numeric: tabular-nums;
+    background: var(--panel-2); border-radius: 3px; padding: 0 5px;
+    flex: 0 0 auto; min-width: 22px; text-align: center;
+  }
+  .row[data-deg="0"] .deg { color: var(--ink-3); opacity: .5; }
+  .row[data-deg="0"] .tag { color: var(--ink-2); }
+
+  /* ---- detail pane ---- */
+  .detail-head { padding: 14px; border-bottom: 1px solid var(--line); }
+  .detail-head .tag {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 19px; font-weight: 600; letter-spacing: -.01em;
+    word-break: break-word;
+  }
+  .detail-head .path { color: var(--ink-2); font-size: 11.5px; margin-top: 3px; }
+  .detail-list { overflow-y: auto; flex: 1 1 auto; }
+  .conn {
+    display: block; width: 100%; text-align: left;
+    padding: 9px 14px; border: 0; border-bottom: 1px solid var(--line);
+    background: none; color: inherit; font: inherit; cursor: pointer;
+  }
+  .conn:hover, .conn:focus-visible { background: var(--accent-soft); outline: none; }
+  .conn-top { display: flex; align-items: center; gap: 8px; }
+  .conn-top .tag { font-family: "IBM Plex Mono", monospace; font-size: 13px; font-weight: 500; }
+  .conn-meta {
+    display: flex; gap: 10px; margin-top: 2px; padding-left: 15px;
+    font-size: 11px; color: var(--ink-3);
+  }
+  .conn-meta .n { font-family: "IBM Plex Mono", monospace; font-variant-numeric: tabular-nums; }
+  .chip {
+    font-size: 9.5px; letter-spacing: .07em; text-transform: uppercase;
+    padding: 1px 5px; border-radius: 3px; border: 1px solid var(--line-2);
+    color: var(--ink-3); margin-left: auto; flex: 0 0 auto;
+  }
+  .empty { padding: 22px 16px; color: var(--ink-3); font-size: 12.5px; }
+  .empty b { display: block; color: var(--ink-2); font-weight: 600; margin-bottom: 5px; font-size: 13px; }
+
+  /* ---- canvas ---- */
+  .canvas { position: absolute; top: 0; left: 0; transform-origin: 0 0; }
+  /* The overlay is positioned in the image's own pixel space, so the image must
+     stay at its natural size. A host stylesheet with `img{max-width:100%}` would
+     otherwise shrink the image while the SVG keeps its width, and every box
+     would land off its symbol. */
+  .canvas img {
+    display: block; background: var(--paper);
+    max-width: none; min-width: 0; width: auto; height: auto;
+  }
+  /* The Hough-input view stacks over the drawing rather than replacing it, so
+     toggling it keeps the pan and zoom exactly where they were. */
+  .canvas #img-pre { position: absolute; top: 0; left: 0; }
+  .canvas svg { position: absolute; top: 0; left: 0; overflow: visible; }
+
+  /* Fixed colours: these sit on white drawing stock in every theme. */
+  .box      { fill: none; stroke: rgba(22, 24, 30, .28); stroke-width: 1.5; }
+  .box.hit  { fill: rgba(0,0,0,0); stroke: none; cursor: pointer; }
+  .box.on   { stroke: #C2410C; stroke-width: 3; fill: rgba(194, 65, 12, .10); }
+  .box.near { stroke: #0E6E7A; stroke-width: 2.5; }
+  .seg      { stroke: #0E6E7A; stroke-width: 3; stroke-linecap: round; opacity: .8; }
+  .seg.hot  { stroke: #C2410C; stroke-width: 5; opacity: 1; }
+  /* Every detected segment, always visible but quiet, so the drawing's own
+     wiring is there to light up. */
+  .raw      { stroke: #7C86A0; stroke-width: 1.5; stroke-linecap: round; opacity: .35; }
+  .raw.lit  { stroke: #0E6E7A; stroke-width: 4; opacity: 1;
+              filter: drop-shadow(0 0 5px rgba(14, 110, 122, .85)); }
+  .raw.pick { stroke: #C2410C; stroke-width: 5; opacity: 1;
+              filter: drop-shadow(0 0 7px rgba(194, 65, 12, .9)); }
+  .box.on   { filter: drop-shadow(0 0 8px rgba(194, 65, 12, .8)); }
+  .box.near { filter: drop-shadow(0 0 6px rgba(14, 110, 122, .75)); }
+  .dim      { opacity: .12; }
+  .txt      { fill: rgba(20, 120, 60, .07); stroke: rgba(20, 120, 60, .55);
+              stroke-width: 1; cursor: pointer; }
+  .txt.on   { fill: rgba(194, 65, 12, .16); stroke: #C2410C; stroke-width: 2.5;
+              filter: drop-shadow(0 0 6px rgba(194, 65, 12, .8)); }
+  .hidden   { display: none; }
+  .hud .toggle b {
+    font-family: "IBM Plex Mono", monospace; font-weight: 500; font-size: 11px;
+    color: var(--ink-3); font-variant-numeric: tabular-nums;
+  }
+
+  /* ---- hud ---- */
+  .hud {
+    position: absolute; left: 14px; bottom: 14px;
+    display: flex; gap: 6px; align-items: center;
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 7px; padding: 5px; box-shadow: 0 2px 10px var(--shadow);
+  }
+  .hud button {
+    border: 0; background: none; color: var(--ink-2);
+    font: inherit; font-size: 12px; padding: 4px 9px; border-radius: 4px; cursor: pointer;
+  }
+  .hud button:hover { background: var(--panel-2); color: var(--ink); }
+  .hud button:focus-visible { outline: 2px solid var(--focus); outline-offset: -1px; }
+  .hud .zoom {
+    font-family: "IBM Plex Mono", monospace; font-size: 11.5px; color: var(--ink-3);
+    padding: 0 8px; font-variant-numeric: tabular-nums; min-width: 52px; text-align: right;
+  }
+  .hud .sep { width: 1px; align-self: stretch; background: var(--line); }
+  .toggle { display: flex; align-items: center; gap: 6px; padding: 4px 9px; cursor: pointer; font-size: 12px; color: var(--ink-2); }
+  .toggle input { accent-color: var(--accent); margin: 0; }
+
+  .legend {
+    position: absolute; right: 14px; bottom: 14px;
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 7px; padding: 9px 12px; box-shadow: 0 2px 10px var(--shadow);
+    display: flex; flex-direction: column; gap: 5px;
+    font-size: 11.5px; color: var(--ink-2);
+  }
+  .legend div { display: flex; align-items: center; gap: 7px; }
+  .swatch { width: 15px; height: 3px; border-radius: 2px; flex: 0 0 auto; }
+
+  @media (max-width: 900px) {
+    .rail { width: 210px; flex-basis: 210px; }
+    .detail { display: none; }
+    .legend { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+</style>
+
+<div class="app">
+  <header class="bar">
+    <div>
+      <h1>__TITLE__</h1>
+      <div class="sub">Asset connectivity from line detection &amp; graph construction</div>
+    </div>
+    <div class="stats">
+      <div class="stat"><b id="s-assets">0</b><span>Assets</span></div>
+      <div class="stat"><b id="s-edges">0</b><span>Connections</span></div>
+      <div class="stat"><b id="s-iso">0</b><span>Isolated</span></div>
+    </div>
+  </header>
+
+  <div class="panes">
+    <aside class="rail">
+      <div class="search">
+        <input id="q" type="search" placeholder="Search tag or type…" autocomplete="off">
+      </div>
+      <div class="list" id="list"></div>
+    </aside>
+
+    <main class="stage" id="stage">
+      <div class="canvas" id="canvas">
+        <img id="img" src="__IMAGE_SRC__" alt="P&amp;ID drawing">
+        <img id="img-pre" src="__PRE_SRC__" alt="Masked and binarized drawing" hidden>
+        <svg id="svg" xmlns="http://www.w3.org/2000/svg">
+          <g id="g-lines"></g>
+          <g id="g-texts"></g>
+          <g id="g-segs"></g>
+          <g id="g-boxes"></g>
+          <g id="g-hits"></g>
+        </svg>
+      </div>
+
+      <div class="hud">
+        <button id="zoom-out" title="Zoom out">−</button>
+        <div class="zoom" id="zoom-pct">100%</div>
+        <button id="zoom-in" title="Zoom in">+</button>
+        <div class="sep"></div>
+        <button id="fit">Fit</button>
+        <div class="sep"></div>
+        <label class="toggle"><input type="checkbox" id="show-all" checked> Assets</label>
+        <label class="toggle"><input type="checkbox" id="show-lines"> Lines <b id="n-lines"></b></label>
+        <label class="toggle"><input type="checkbox" id="show-texts" checked> Labels <b id="n-texts"></b></label>
+        <label class="toggle" id="pre-wrap"><input type="checkbox" id="show-pre"> Hough input</label>
+      </div>
+
+      <div class="legend">
+        <div><span class="swatch" style="background:#C2410C"></span> Selected asset</div>
+        <div><span class="swatch" style="background:#0E6E7A"></span> Connected asset &amp; pipe path</div>
+        <div><span class="swatch" style="background:#8B5CF6"></span> Detected line segment</div>
+      </div>
+    </main>
+
+    <aside class="detail">
+      <div id="detail-body">
+        <div class="empty">
+          <b>Nothing selected</b>
+          Pick an asset from the list, or click one on the drawing, to isolate its
+          connections and the pipe segments that carry them.
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var DATA = __DATA__;
+  var W = DATA.width, H = DATA.height;
+  var assets = DATA.assets;
+  var byId = {};
+  assets.forEach(function (a) { byId[a.id] = a; });
+
+  var svg = document.getElementById("svg");
+  svg.setAttribute("width", W);
+  svg.setAttribute("height", H);
+  svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+
+  // Pin the image and the stack that holds it to the exact pixel space the
+  // overlay is drawn in, so no inherited rule can resize one without the other.
+  var imgEl = document.getElementById("img");
+  imgEl.width = W; imgEl.height = H;
+  var canvasEl = document.getElementById("canvas");
+  canvasEl.style.width = W + "px";
+  canvasEl.style.height = H + "px";
+
+  var gSegs = document.getElementById("g-segs");
+  var gBoxes = document.getElementById("g-boxes");
+  var gHits = document.getElementById("g-hits");
+  var canvas = document.getElementById("canvas");
+  var stage = document.getElementById("stage");
+
+  var selected = null;
+  var boxEls = {};
+
+  // ---- stats -------------------------------------------------------------
+  var edges = 0, isolated = 0;
+  assets.forEach(function (a) {
+    edges += a.conns.length;
+    if (!a.conns.length) isolated++;
+  });
+  document.getElementById("s-assets").textContent = assets.length;
+  // Each connection is stored on both endpoints, so halve for the true count.
+  document.getElementById("s-edges").textContent = Math.round(edges / 2);
+  document.getElementById("s-iso").textContent = isolated;
+
+  // ---- draw asset boxes --------------------------------------------------
+  function px(b) {
+    return { x: b[0] * W, y: b[1] * H, w: (b[2] - b[0]) * W, h: (b[3] - b[1]) * H };
+  }
+
+  assets.forEach(function (a) {
+    var r = px(a.box);
+    var rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    rect.setAttribute("x", r.x); rect.setAttribute("y", r.y);
+    rect.setAttribute("width", r.w); rect.setAttribute("height", r.h);
+    rect.setAttribute("rx", 2);
+    rect.setAttribute("class", "box");
+    gBoxes.appendChild(rect);
+    boxEls[a.id] = rect;
+
+    // A separate, padded, invisible target so small symbols stay clickable.
+    var hit = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    var pad = 4;
+    hit.setAttribute("x", r.x - pad); hit.setAttribute("y", r.y - pad);
+    hit.setAttribute("width", r.w + pad * 2); hit.setAttribute("height", r.h + pad * 2);
+    hit.setAttribute("class", "box hit");
+    hit.addEventListener("click", function (e) { e.stopPropagation(); select(a.id); });
+    gHits.appendChild(hit);
+  });
+
+  // ---- selection ---------------------------------------------------------
+  function clearMarks() {
+    gSegs.textContent = "";
+    assets.forEach(function (a) { boxEls[a.id].setAttribute("class", "box"); });
+    lineEls.forEach(function (el) { el.setAttribute("class", "raw"); });
+    textEls.forEach(function (el) { el.setAttribute("class", "txt"); });
+  }
+
+  function drawSegs(conn, index) {
+    conn.segs.forEach(function (s) {
+      var ln = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      ln.setAttribute("x1", s[0] * W); ln.setAttribute("y1", s[1] * H);
+      ln.setAttribute("x2", s[2] * W); ln.setAttribute("y2", s[3] * H);
+      ln.setAttribute("class", "seg");
+      ln.dataset.conn = index;
+      gSegs.appendChild(ln);
+    });
+  }
+
+  function select(id) {
+    selected = id;
+    clearMarks();
+    var a = byId[id];
+    boxEls[id].setAttribute("class", "box on");
+    a.conns.forEach(function (c, i) {
+      if (boxEls[c.id]) boxEls[c.id].setAttribute("class", "box near");
+      drawSegs(c, i);
+      // Light the detected segments this connection runs over.
+      c.segs.forEach(function (g) {
+        var idx = lineKey[g.join(",")];
+        if (idx !== undefined) lineEls[idx].setAttribute("class", "raw lit");
+      });
+    });
+    renderDetail(a);
+    renderList();
+    applyShowAll();
+  }
+
+  function deselect() {
+    selected = null;
+    clearMarks();
+    renderDetail(null);
+    renderList();
+    applyShowAll();
+  }
+
+  function applyShowAll() {
+    var on = document.getElementById("show-all").checked;
+    gBoxes.querySelectorAll("rect.box").forEach(function (el) {
+      var marked = el.classList.contains("on") || el.classList.contains("near");
+      el.classList.toggle("hidden", !on && !marked);
+    });
+  }
+
+  // ---- detail pane -------------------------------------------------------
+  function catVar(cat) { return "var(--c-" + cat + ")"; }
+
+  function renderDetail(a) {
+    var host = document.getElementById("detail-body");
+    host.textContent = "";
+    if (!a) {
+      host.innerHTML = '<div class="empty"><b>Nothing selected</b>' +
+        'Pick an asset from the list, or click one on the drawing, to isolate its ' +
+        'connections and the pipe segments that carry them.</div>';
+      return;
+    }
+    var head = document.createElement("div");
+    head.className = "detail-head";
+    var t = document.createElement("div");
+    t.className = "tag";
+    t.textContent = a.tag;
+    var p = document.createElement("div");
+    p.className = "path";
+    p.textContent = a.label;
+    head.appendChild(t); head.appendChild(p);
+    host.appendChild(head);
+
+    if (!a.conns.length) {
+      var e = document.createElement("div");
+      e.className = "empty";
+      e.innerHTML = "<b>No connections found</b>No pipe path reached another tagged " +
+        "asset from here. Usually the run of line was broken, or the neighbour " +
+        "never got a tag.";
+      host.appendChild(e);
+      return;
+    }
+
+    var list = document.createElement("div");
+    list.className = "detail-list";
+    a.conns.forEach(function (c, i) {
+      var b = document.createElement("button");
+      b.className = "conn";
+      b.type = "button";
+
+      var top = document.createElement("div");
+      top.className = "conn-top";
+      var dot = document.createElement("span");
+      dot.className = "dot";
+      dot.style.background = catVar(c.cat);
+      var tag = document.createElement("span");
+      tag.className = "tag";
+      tag.textContent = c.tag;
+      top.appendChild(dot); top.appendChild(tag);
+      if (c.dir && c.dir !== "unknown") {
+        var chip = document.createElement("span");
+        chip.className = "chip";
+        chip.textContent = c.dir;
+        top.appendChild(chip);
+      }
+
+      var meta = document.createElement("div");
+      meta.className = "conn-meta";
+      meta.innerHTML = '<span>' + esc(c.leaf) + '</span>' +
+                       '<span class="n">' + c.segs.length + ' segments</span>';
+
+      b.appendChild(top); b.appendChild(meta);
+      b.addEventListener("mouseenter", function () { hot(i, true); });
+      b.addEventListener("mouseleave", function () { hot(i, false); });
+      b.addEventListener("focus", function () { hot(i, true); });
+      b.addEventListener("blur", function () { hot(i, false); });
+      b.addEventListener("click", function () { select(c.id); });
+      list.appendChild(b);
+    });
+    host.appendChild(list);
+  }
+
+  function selectText(index) {
+    selected = null;
+    clearMarks();
+    var t = texts[index];
+    textEls[index].setAttribute("class", "txt on");
+
+    if (t.kind === "line") {
+      // Light the pipe the label names, and the rest of its run.
+      if (lineEls[t.idx]) lineEls[t.idx].setAttribute("class", "raw pick");
+      var owners = segOwners[(rawLines[t.idx] || []).join(",")] || [];
+      owners.forEach(function (o) {
+        var conn = byId[o.id] && byId[o.id].conns[o.ci];
+        if (!conn) return;
+        conn.segs.forEach(function (g) {
+          var i = lineKey[g.join(",")];
+          if (i !== undefined && i !== t.idx) lineEls[i].setAttribute("class", "raw lit");
+        });
+        if (boxEls[o.id]) boxEls[o.id].setAttribute("class", "box near");
+        if (boxEls[conn.id]) boxEls[conn.id].setAttribute("class", "box near");
+      });
+    } else if (boxEls[t.idx]) {
+      boxEls[t.idx].setAttribute("class", "box on");
+    }
+
+    renderTextDetail(index);
+    renderList();
+    applyShowAll();
+  }
+
+  function renderTextDetail(index) {
+    var t = texts[index];
+    var host = document.getElementById("detail-body");
+    host.textContent = "";
+    var head = document.createElement("div");
+    head.className = "detail-head";
+    head.innerHTML = '<div class="tag">' + esc(t.t) + '</div>' +
+      '<div class="path">Label attached to a ' + t.kind + '</div>';
+    host.appendChild(head);
+
+    var list = document.createElement("div");
+    list.className = "detail-list";
+    var b = document.createElement("button");
+    b.className = "conn";
+    b.type = "button";
+    if (t.kind === "symbol") {
+      var a = byId[t.idx];
+      b.innerHTML = '<div class="conn-top"><span class="dot" style="background:' +
+        (a ? catVar(a.cat) : "#888") + '"></span><span class="tag">' +
+        esc(a ? a.tag : "symbol " + t.idx) + '</span></div>' +
+        '<div class="conn-meta"><span>' + esc(a ? a.leaf : "") + '</span></div>';
+      b.addEventListener("click", function () { if (a) select(a.id); });
+    } else {
+      b.innerHTML = '<div class="conn-top"><span class="tag">Pipe segment ' +
+        t.idx + '</span></div>';
+      b.addEventListener("click", function () { selectLine(t.idx); });
+    }
+    list.appendChild(b);
+    host.appendChild(list);
+  }
+
+  function renderLineDetail(index, assetIds, pathCount) {
+    var host = document.getElementById("detail-body");
+    var g = rawLines[index];
+    var len = Math.round(Math.hypot((g[2] - g[0]) * W, (g[3] - g[1]) * H));
+    host.textContent = "";
+
+    var head = document.createElement("div");
+    head.className = "detail-head";
+    var label = lineText[String(index)];
+    head.innerHTML =
+      '<div class="tag">' + (label ? esc(label) : 'Pipe segment') + '</div>' +
+      '<div class="path">' + (label ? 'attached label &middot; ' : '') + len +
+      'px &middot; on ' + pathCount + ' connection path' +
+      (pathCount === 1 ? '' : 's') + '</div>';
+    host.appendChild(head);
+
+    if (!assetIds.length) {
+      var e = document.createElement("div");
+      e.className = "empty";
+      e.innerHTML = "<b>Not on any path</b>This segment was detected but the " +
+        "graph could not attach it to an asset.";
+      host.appendChild(e);
+      return;
+    }
+    var list = document.createElement("div");
+    list.className = "detail-list";
+    assetIds.forEach(function (id) {
+      var a = byId[id];
+      if (!a) return;
+      var b = document.createElement("button");
+      b.className = "conn";
+      b.type = "button";
+      b.innerHTML = '<div class="conn-top"><span class="dot" style="background:' +
+        catVar(a.cat) + '"></span><span class="tag">' + esc(a.tag) + '</span></div>' +
+        '<div class="conn-meta"><span>' + esc(a.leaf) + '</span></div>';
+      b.addEventListener("click", function () { select(a.id); });
+      list.appendChild(b);
+    });
+    host.appendChild(list);
+  }
+
+  function hot(index, on) {
+    gSegs.querySelectorAll('line[data-conn="' + index + '"]').forEach(function (el) {
+      el.classList.toggle("hot", on);
+    });
+  }
+
+  function esc(s) {
+    return String(s).replace(/[&<>"]/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+    });
+  }
+
+  // ---- asset list --------------------------------------------------------
+  var listEl = document.getElementById("list");
+  var query = "";
+
+  function renderList() {
+    listEl.textContent = "";
+    var q = query.toLowerCase();
+    var shown = assets.filter(function (a) {
+      return !q || a.tag.toLowerCase().indexOf(q) >= 0 ||
+             a.label.toLowerCase().indexOf(q) >= 0;
+    });
+
+    if (!shown.length) {
+      var e = document.createElement("div");
+      e.className = "empty";
+      e.textContent = "No asset matches “" + query + "”.";
+      listEl.appendChild(e);
+      return;
+    }
+
+    var group = null;
+    shown.forEach(function (a) {
+      if (a.catName !== group) {
+        group = a.catName;
+        var h = document.createElement("div");
+        h.className = "group";
+        h.textContent = group;
+        listEl.appendChild(h);
+      }
+      var row = document.createElement("button");
+      row.className = "row";
+      row.type = "button";
+      row.dataset.deg = a.conns.length;
+      row.setAttribute("aria-selected", String(a.id === selected));
+
+      var dot = document.createElement("span");
+      dot.className = "dot";
+      dot.style.background = catVar(a.cat);
+      var tag = document.createElement("span");
+      tag.className = "tag";
+      tag.textContent = a.tag;
+      var kind = document.createElement("span");
+      kind.className = "kind";
+      kind.textContent = a.leaf;
+      var deg = document.createElement("span");
+      deg.className = "deg";
+      deg.textContent = a.conns.length;
+
+      row.appendChild(dot); row.appendChild(tag);
+      row.appendChild(kind); row.appendChild(deg);
+      row.addEventListener("click", function () { select(a.id); });
+      listEl.appendChild(row);
+    });
+  }
+
+  document.getElementById("q").addEventListener("input", function (e) {
+    query = e.target.value;
+    renderList();
+  });
+
+  // ---- pan & zoom --------------------------------------------------------
+  var scale = 1, tx = 0, ty = 0;
+
+  function apply() {
+    canvas.style.transform = "translate(" + tx + "px," + ty + "px) scale(" + scale + ")";
+    document.getElementById("zoom-pct").textContent = Math.round(scale * 100) + "%";
+  }
+
+  function fit() {
+    var r = stage.getBoundingClientRect();
+    var pad = 6;
+    scale = Math.min((r.width - pad * 2) / W, (r.height - pad * 2) / H);
+    tx = (r.width - W * scale) / 2;
+    ty = (r.height - H * scale) / 2;
+    apply();
+  }
+
+  function zoomAt(cx, cy, factor) {
+    var next = Math.min(12, Math.max(0.05, scale * factor));
+    var k = next / scale;
+    tx = cx - (cx - tx) * k;
+    ty = cy - (cy - ty) * k;
+    scale = next;
+    apply();
+  }
+
+  stage.addEventListener("wheel", function (e) {
+    e.preventDefault();
+    var r = stage.getBoundingClientRect();
+    zoomAt(e.clientX - r.left, e.clientY - r.top, e.deltaY < 0 ? 1.12 : 1 / 1.12);
+  }, { passive: false });
+
+  var drag = null;
+  stage.addEventListener("pointerdown", function (e) {
+    if (e.button !== 0) return;
+    // The controls sit inside the stage, so a press on them would otherwise
+    // start a drag and capture the pointer, swallowing the click.
+    if (e.target.closest(".hud, .legend")) return;
+    drag = { x: e.clientX, y: e.clientY, tx: tx, ty: ty, moved: false };
+    stage.setPointerCapture(e.pointerId);
+    stage.classList.add("dragging");
+  });
+  stage.addEventListener("pointermove", function (e) {
+    if (!drag) return;
+    var dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    if (Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true;
+    tx = drag.tx + dx; ty = drag.ty + dy;
+    apply();
+  });
+  // Click anywhere on the drawing, not only on an asset's own box: pick the
+  // asset under the pointer, else the pipe under it, else clear.
+  function pickAt(clientX, clientY) {
+    var r = stage.getBoundingClientRect();
+    var ix = (clientX - r.left - tx) / scale;
+    var iy = (clientY - r.top - ty) / scale;
+
+    var best = null, bestArea = Infinity;
+    assets.forEach(function (a) {
+      var b = a.box, pad = 6;
+      var x1 = b[0] * W - pad, y1 = b[1] * H - pad;
+      var x2 = b[2] * W + pad, y2 = b[3] * H + pad;
+      if (ix >= x1 && ix <= x2 && iy >= y1 && iy <= y2) {
+        // Smallest box wins, so a symbol inside a larger one is still reachable.
+        var area = (x2 - x1) * (y2 - y1);
+        if (area < bestArea) { best = a.id; bestArea = area; }
+      }
+    });
+    if (best !== null) return { kind: "asset", id: best };
+
+    for (var ti = 0; ti < texts.length; ti++) {
+      var tb = texts[ti].box;
+      if (ix >= tb[0] * W - 3 && ix <= tb[2] * W + 3 &&
+          iy >= tb[1] * H - 3 && iy <= tb[3] * H + 3) {
+        return { kind: "text", index: ti };
+      }
+    }
+
+    var tol = Math.max(3, 6 / scale);
+    var nearest = null, nearestD = tol;
+    rawLines.forEach(function (g, i) {
+      var x1 = g[0] * W, y1 = g[1] * H, x2 = g[2] * W, y2 = g[3] * H;
+      var dx = x2 - x1, dy = y2 - y1;
+      var len2 = dx * dx + dy * dy;
+      var t = len2 ? Math.max(0, Math.min(1, ((ix - x1) * dx + (iy - y1) * dy) / len2)) : 0;
+      var d = Math.hypot(ix - (x1 + t * dx), iy - (y1 + t * dy));
+      if (d < nearestD) { nearestD = d; nearest = i; }
+    });
+    if (nearest !== null) return { kind: "line", index: nearest };
+    return null;
+  }
+
+  function selectLine(index) {
+    selected = null;
+    clearMarks();
+
+    var owners = segOwners[rawLines[index].join(",")] || [];
+
+    // Light the whole run, not just the piece under the pointer: a pipe arrives
+    // as a string of fragments, and only the connection path knows which ones
+    // belong together.
+    var assetIds = [];
+    owners.forEach(function (o) {
+      if (assetIds.indexOf(o.id) < 0) assetIds.push(o.id);
+      var conn = byId[o.id] && byId[o.id].conns[o.ci];
+      if (!conn) return;
+      conn.segs.forEach(function (g) {
+        var i = lineKey[g.join(",")];
+        if (i !== undefined) lineEls[i].setAttribute("class", "raw lit");
+      });
+      if (boxEls[conn.id]) boxEls[conn.id].setAttribute("class", "box near");
+    });
+
+    // The clicked piece stays the brightest of the run.
+    lineEls[index].setAttribute("class", "raw pick");
+    assetIds.forEach(function (id) {
+      if (boxEls[id]) boxEls[id].setAttribute("class", "box near");
+    });
+
+    renderLineDetail(index, assetIds, owners.length);
+    renderList();
+    applyShowAll();
+  }
+
+  function endDrag(e) {
+    if (drag && !drag.moved) {
+      var hit = pickAt(e.clientX, e.clientY);
+      if (!hit) deselect();
+      else if (hit.kind === "asset") select(hit.id);
+      else if (hit.kind === "text") selectText(hit.index);
+      else selectLine(hit.index);
+    }
+    drag = null;
+    stage.classList.remove("dragging");
+  }
+  stage.addEventListener("pointerup", endDrag);
+  stage.addEventListener("pointercancel", function () { drag = null; stage.classList.remove("dragging"); });
+
+  document.getElementById("fit").addEventListener("click", fit);
+  document.getElementById("zoom-in").addEventListener("click", function () {
+    var r = stage.getBoundingClientRect();
+    zoomAt(r.width / 2, r.height / 2, 1.25);
+  });
+  document.getElementById("zoom-out").addEventListener("click", function () {
+    var r = stage.getBoundingClientRect();
+    zoomAt(r.width / 2, r.height / 2, 1 / 1.25);
+  });
+  document.getElementById("show-all").addEventListener("change", applyShowAll);
+
+  // ---- raw line-segment layer -------------------------------------------
+  var gLines = document.getElementById("g-lines");
+  var rawLines = DATA.lines || [];
+  document.getElementById("n-lines").textContent = rawLines.length
+    ? "(" + rawLines.length + ")" : "";
+
+  var lineEls = [];
+  var lineKey = {};
+  rawLines.forEach(function (s, i) {
+    var ln = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    ln.setAttribute("x1", s[0] * W); ln.setAttribute("y1", s[1] * H);
+    ln.setAttribute("x2", s[2] * W); ln.setAttribute("y2", s[3] * H);
+    ln.setAttribute("class", "raw");
+    gLines.appendChild(ln);
+    lineEls.push(ln);
+    lineKey[s.join(",")] = i;
+  });
+
+  var showLines = document.getElementById("show-lines");
+  showLines.checked = true;
+  showLines.disabled = !rawLines.length;
+  showLines.addEventListener("change", function () {
+    gLines.classList.toggle("hidden", !showLines.checked);
+  });
+
+  // Labels that leftover-text association attached to a pipe or a symbol.
+  var gTexts = document.getElementById("g-texts");
+  var texts = DATA.texts || [];
+  var lineText = DATA.lineText || {};
+  var textEls = [];
+  document.getElementById("n-texts").textContent = texts.length ? "(" + texts.length + ")" : "";
+  texts.forEach(function (t, i) {
+    var b = t.box;
+    var r = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    r.setAttribute("x", b[0] * W); r.setAttribute("y", b[1] * H);
+    r.setAttribute("width", (b[2] - b[0]) * W);
+    r.setAttribute("height", (b[3] - b[1]) * H);
+    r.setAttribute("class", "txt");
+    gTexts.appendChild(r);
+    textEls.push(r);
+  });
+  var showTexts = document.getElementById("show-texts");
+  showTexts.disabled = !texts.length;
+  showTexts.addEventListener("change", function () {
+    gTexts.classList.toggle("hidden", !showTexts.checked);
+  });
+
+  // Which connection paths a segment belongs to, so clicking a pipe can answer
+  // "what does this run join?" and light the rest of the run with it.
+  var segOwners = {};
+  assets.forEach(function (a) {
+    a.conns.forEach(function (c, ci) {
+      c.segs.forEach(function (g) {
+        var k = g.join(",");
+        (segOwners[k] = segOwners[k] || []).push({ id: a.id, ci: ci });
+      });
+    });
+  });
+
+  // ---- Hough input layer -------------------------------------------------
+  var preEl = document.getElementById("img-pre");
+  var preWrap = document.getElementById("pre-wrap");
+  var showPre = document.getElementById("show-pre");
+  if (!preEl.getAttribute("src")) {
+    preWrap.style.display = "none";
+  } else {
+    preEl.width = W; preEl.height = H;
+    showPre.addEventListener("change", function () {
+      preEl.hidden = !showPre.checked;
+    });
+  }
+
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") deselect();
+    if (e.key === "f" && !/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)) fit();
+  });
+
+  // ---- go ----------------------------------------------------------------
+  renderList();
+  if (imgEl.complete) fit(); else imgEl.addEventListener("load", fit);
+  window.addEventListener("resize", function () { apply(); });
+})();
+</script>
